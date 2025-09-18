@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Motion Analysis (TMA)</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --primary-color: #2d2d2d;
+            --secondary-color: #444;
+            --text-color: #e0e0e0;
+            --accent-color: #00aaff;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 1rem;
+            font-size: 14px;
+        }
+
+        #app {
+            max-width: 900px;
+            margin: auto;
+            background-color: var(--primary-color);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        h1, h2 {
+            color: var(--accent-color);
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 0.5rem;
+            margin-top: 0;
+        }
+
+        .control-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        input[type="number"] {
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 0.6rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        ::placeholder {
+            color: #999;
+            opacity: 1;
+        }
+
+        .points-header {
+            display: grid;
+            grid-template-columns: 25px 30px 1fr 1fr 1fr 1fr 1fr;
+            gap: 0.5rem;
+            font-weight: bold;
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid var(--secondary-color);
+            align-items: center;
+        }
+        
+        .point-row {
+            display: grid;
+            grid-template-columns: 25px 30px 1fr 1fr 1fr 1fr 1fr;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .point-row span {
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .point-row input {
+            padding: 0.4rem;
+            font-size: 13px;
+        }
+        
+        .point-row input:disabled {
+            background-color: #333;
+            cursor: not-allowed;
+        }
+
+        .points-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        button {
+            padding: 0.7rem 1.2rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        #btn-calculate { background-color: var(--accent-color); color: #fff; }
+        #btn-calculate:hover { background-color: #0088cc; }
+        
+        .secondary-btn { background-color: var(--secondary-color); color: var(--text-color); }
+        .secondary-btn:hover { background-color: #555; }
+
+        .delete-btn {
+            background-color: var(--error-color);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            line-height: 24px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .delete-btn:hover { background-color: #b22222; }
+        
+        #results {
+            margin-top: 2rem;
+            background-color: #252525;
+            padding: 1.5rem;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        #results-summary {
+            border: 1px solid var(--secondary-color);
+            padding: 1rem;
+            border-radius: 4px;
+        }
+        
+        #results-summary p {
+            margin: 0.5rem 0;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        #progress-container {
+            width: 100%;
+            background-color: var(--secondary-color);
+            border-radius: 4px;
+            margin-top: 1rem;
+            display: none;
+        }
+        
+        #progress-bar {
+            width: 0%;
+            height: 20px;
+            background-color: var(--success-color);
+            border-radius: 4px;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+            transition: width 0.1s;
+        }
+        
+        #status-text {
+            margin-top: 0.5rem;
+            font-style: italic;
+            color: #aaa;
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 0.5rem; }
+            #app { padding: 1rem; }
+            .points-header { display: none; }
+            .point-row {
+                grid-template-columns: 1fr 1fr;
+                border: 1px solid var(--secondary-color);
+                padding: 1rem;
+                padding-top: 2.5rem;
+                border-radius: 4px;
+                position: relative;
+            }
+            .point-row span {
+                position: absolute;
+                top: 0.75rem;
+                left: 1rem;
+                font-size: 1.2rem;
+            }
+            .delete-btn {
+                position: absolute;
+                top: 0.5rem;
+                right: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <h1>Target Motion Analysis</h1>
+
+        <div style="margin: 1.5rem 0; padding: 1rem; background-color: var(--secondary-color); border-radius: 8px;">
+            <ul style="margin: 0; padding-left: 1.2rem; list-style-type: disc;">
+                <li style="margin-bottom: 0.5rem;">
+                    The more you move between measurements, the better the solution quality will be.
+                </li>
+                <li style="margin-bottom: 0.5rem;">
+                    Changing course between measurements is highly beneficial. At least one course change and a minimum of 4 measurements are recommended for reliable results.
+                </li>
+                <li style="margin-bottom: 0.5rem;">
+                    "My Heading" is your vessel's heading at the time of the measurement, which is normally equal to the "Leg Course" of the previous leg.
+                </li>
+                <li style="margin-bottom: 0.5rem;">
+                    "Rel. Bearing" is the bearing to the target relative to your own heading (0° is dead ahead, 90° is to starboard, etc.).
+                </li>
+            </ul>
+        </div>
+
+        <h2>Monte Carlo Parameters</h2>
+        <div class="control-grid">
+            <div class="input-group">
+                <label for="num-simulations">Number of Simulations</label>
+                <input type="number" id="num-simulations" value="500">
+            </div>
+            <div class="input-group">
+                <label for="bearing-error">Bearing Error Std Dev (°)</label>
+                <input type="number" id="bearing-error" value="0.75" step="0.1">
+            </div>
+        </div>
+
+        <h2>Observation Points</h2>
+        <div class="points-container">
+            <div class="points-header">
+                <span>#</span>
+                <span></span>
+                <span>My Heading (°)</span>
+                <span>Rel. Bearing (°)</span>
+                <span>Leg Course (°)</span>
+                <span>Leg Speed (kts)</span>
+                <span>Leg Time (min)</span>
+            </div>
+            <div id="points-list"></div>
+        </div>
+        <div class="points-controls">
+            <button id="btn-add-point" class="secondary-btn">Add Point</button>
+            <button id="btn-example1" class="secondary-btn">Example 1</button>
+            <button id="btn-example2" class="secondary-btn">Example 2</button>
+            <button id="btn-example3" class="secondary-btn">Example 3</button>
+            <button id="btn-example4" class="secondary-btn">Example 4</button>
+        </div>
+
+        <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+            <button id="btn-calculate">Calculate Solution</button>
+            <button id="btn-reset" class="secondary-btn">Reset All</button>
+        </div>
+
+        <div id="results">
+            <h2 style="margin-top:0;">Analysis Results</h2>
+            <p id="status-text"></p>
+            <div id="progress-container">
+                <div id="progress-bar">0%</div>
+            </div>
+            <div id="results-summary"></div>
+        </div>
+
+        <div style="margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--secondary-color); font-size: 0.8rem; color: #888; text-align: center;">
+            Version 1.0 • September 18, 2025<br>
+            Author: Stefan Antun (<a href="mailto:stefan+git@sonarino.com" style="color: inherit; text-decoration: underline;">stefan+git@sonarino.com</a>)<br>
+            License: GNU GPL-v2.0
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        
+        // DOM Elements
+        const pointsList = document.getElementById('points-list');
+        const btnAddPoint = document.getElementById('btn-add-point');
+        const btnCalculate = document.getElementById('btn-calculate');
+        const btnReset = document.getElementById('btn-reset');
+        const btnExample1 = document.getElementById('btn-example1');
+        const btnExample2 = document.getElementById('btn-example2');
+        const btnExample3 = document.getElementById('btn-example3');
+        const btnExample4 = document.getElementById('btn-example4');
+        const resultsDiv = document.getElementById('results');
+        const statusText = document.getElementById('status-text');
+        const progressBar = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress-container');
+        const resultsSummary = document.getElementById('results-summary');
+        const numSimulationsInput = document.getElementById('num-simulations');
+        const bearingErrorInput = document.getElementById('bearing-error');
+
+        // State & Constants
+        let pointCounter = 0;
+        const placeholderMap = {
+            my_heading: 'My Heading (°)',
+            rel_bearing: 'Rel. Bearing (°)',
+            course_leg: 'Leg Course (°)',
+            speed_leg: 'Leg Speed (kts)',
+            time_leg: 'Leg Time (min)',
+        };
+
+        const example1Data = [
+            { my_heading: 0.0, rel_bearing: 0.0 },
+            { my_heading: 0.0, rel_bearing: 8.0, course_leg: 0.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 0.0, rel_bearing: 19.0, course_leg: 0.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 0.0, rel_bearing: 33.0, course_leg: 0.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 45.0, rel_bearing: 355.0, course_leg: 45.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 45.0, rel_bearing: 4.0, course_leg: 45.0, speed_leg: 9.0, time_leg: 10.0 },
+        ];
+
+        const example2Data = [
+            { my_heading: 0.0, rel_bearing: 0.0 },
+            { my_heading: 0.0, rel_bearing: 352.0, course_leg: 0.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 0.0, rel_bearing: 341.0, course_leg: 0.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 0.0, rel_bearing: 327.0, course_leg: 0.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 315.0, rel_bearing: 5.0, course_leg: 315.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 315.0, rel_bearing: 356.0, course_leg: 315.0, speed_leg: 9.0, time_leg: 10.0 },
+        ];
+
+        const example3Data = [
+            { my_heading: 180.0, rel_bearing: 0.0 },
+            { my_heading: 180.0, rel_bearing: 8.0, course_leg: 180.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 180.0, rel_bearing: 19.0, course_leg: 180.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 180.0, rel_bearing: 33.0, course_leg: 180.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 225.0, rel_bearing: 355.0, course_leg: 225.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 225.0, rel_bearing: 4.0, course_leg: 225.0, speed_leg: 9.0, time_leg: 10.0 },
+        ];
+
+        const example4Data = [
+            { my_heading: 180.0, rel_bearing: 0.0 },
+            { my_heading: 180.0, rel_bearing: 352.0, course_leg: 180.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 180.0, rel_bearing: 341.0, course_leg: 180.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 180.0, rel_bearing: 327.0, course_leg: 180.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 135.0, rel_bearing: 5.0, course_leg: 135.0, speed_leg: 9.0, time_leg: 10.0 },
+            { my_heading: 135.0, rel_bearing: 356.0, course_leg: 135.0, speed_leg: 9.0, time_leg: 10.0 },
+        ];
+
+        // Helper Functions
+        const deg2rad = deg => (deg * Math.PI) / 180.0;
+        const rad2deg = rad => (rad * 180.0 / Math.PI + 360) % 360;
+        const knots2km_per_min = knots => knots * 1.852 / 60.0;
+        const boxMullerTransform = (mean, std) => {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+            return z * std + mean;
+        };
+        const circmean = (rads) => {
+            const sin_sum = rads.reduce((sum, r) => sum + Math.sin(r), 0) / rads.length;
+            const cos_sum = rads.reduce((sum, r) => sum + Math.cos(r), 0) / rads.length;
+            return Math.atan2(sin_sum, cos_sum);
+        };
+        const circstd = (rads) => {
+            const sin_sum = rads.reduce((sum, r) => sum + Math.sin(r), 0) / rads.length;
+            const cos_sum = rads.reduce((sum, r) => sum + Math.cos(r), 0) / rads.length;
+            const R = Math.sqrt(sin_sum**2 + cos_sum**2);
+            return Math.sqrt(-2 * Math.log(R));
+        };
+
+        const determineAOBSide = (aob_deg) => {
+            if (aob_deg > 180) {
+                return {
+                    value: 360 - aob_deg,
+                    side: 'Port'
+                };
+            }
+            return {
+                value: aob_deg,
+                side: 'Starboard'
+            };
+        };
+
+        // UI Management Functions
+        const renumberPoints = () => {
+            const rows = pointsList.querySelectorAll('.point-row');
+            rows.forEach((row, index) => {
+                const newId = index + 1;
+                row.querySelector('span').textContent = `#${newId}`;
+                row.dataset.id = newId;
+
+                row.querySelectorAll('input').forEach(input => {
+                    input.id = `${input.name}-${newId}`;
+                });
+                
+                const isFirst = newId === 1;
+                row.querySelector('[name="course_leg"]').disabled = isFirst;
+                row.querySelector('[name="speed_leg"]').disabled = isFirst;
+                row.querySelector('[name="time_leg"]').disabled = isFirst;
+            });
+        };
+
+        const createPointRow = (data = {}) => {
+            pointCounter++;
+            const isFirst = pointCounter === 1;
+            const row = document.createElement('div');
+            row.className = 'point-row';
+            row.dataset.id = pointCounter;
+
+            const createInput = (name, value, disabled = false) => `
+                <input type="number" 
+                       id="${name}-${pointCounter}" 
+                       name="${name}" 
+                       value="${value ?? ''}" 
+                       placeholder="${placeholderMap[name]}"
+                       ${disabled ? 'disabled' : ''} 
+                       step="0.1">
+            `;
+
+            row.innerHTML = `
+                <span>#${pointCounter}</span>
+                <button class="delete-btn" title="Delete this point">&times;</button>
+                ${createInput('my_heading', data.my_heading)}
+                ${createInput('rel_bearing', data.rel_bearing)}
+                ${createInput('course_leg', data.course_leg, isFirst)}
+                ${createInput('speed_leg', data.speed_leg, isFirst)}
+                ${createInput('time_leg', data.time_leg, isFirst)}
+            `;
+            pointsList.appendChild(row);
+        };
+
+        const addPoint = () => createPointRow();
+
+        const resetData = () => {
+            pointsList.innerHTML = '';
+            pointCounter = 0;
+            for (let i = 0; i < 3; i++) {
+                addPoint();
+            }
+            resultsDiv.style.display = 'none';
+        };
+
+        const populateData = (dataArray) => {
+            pointsList.innerHTML = '';
+            pointCounter = 0;
+            resultsDiv.style.display = 'none';
+            dataArray.forEach(dataPoint => {
+                createPointRow(dataPoint);
+            });
+        };
+
+        // Core Logic Functions
+        const calculateBestFitSolution = (points) => {
+            if (points.length < 3) return "Calculation failed: At least 3 measurement points are required.";
+            
+            const sub_positions = [[0.0, 0.0]];
+            const bearing_vectors = [];
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                const true_bearing_rad = deg2rad((p.my_heading + p.rel_bearing) % 360);
+                bearing_vectors.push([Math.sin(true_bearing_rad), Math.cos(true_bearing_rad)]);
+                if (i < points.length - 1) {
+                    const p_next = points[i + 1];
+                    const dt = p_next.time_leg;
+                    const speed_kmpm = knots2km_per_min(p_next.speed_leg);
+                    const course_rad = deg2rad(p_next.course_leg);
+                    const velocity_vec = [speed_kmpm * Math.sin(course_rad), speed_kmpm * Math.cos(course_rad)];
+                    const last_pos = sub_positions[sub_positions.length - 1];
+                    const next_pos = [last_pos[0] + velocity_vec[0] * dt, last_pos[1] + velocity_vec[1] * dt];
+                    sub_positions.push(next_pos);
+                }
+            }
+
+            const solve2x2 = (A, b) => {
+                const det = A[0][0] * A[1][1] - A[0][1] * A[1][0];
+                if (Math.abs(det) < 1e-9) return null;
+                const inv_det = 1.0 / det;
+                const x = inv_det * (A[1][1] * b[0] - A[0][1] * b[1]);
+                const y = inv_det * (-A[1][0] * b[0] + A[0][0] * b[1]);
+                return [x, y];
+            };
+
+            const errorFunction = (v_target_guess) => {
+                const [vx, vy] = v_target_guess;
+                const v_tgt = [vx, vy];
+                const dt1 = points[1].time_leg;
+                
+                const mat1 = [[-bearing_vectors[0][0], bearing_vectors[1][0]], [-bearing_vectors[0][1], bearing_vectors[1][1]]];
+                const rhs1 = [v_tgt[0] * dt1 - (sub_positions[1][0] - sub_positions[0][0]), v_tgt[1] * dt1 - (sub_positions[1][1] - sub_positions[0][1])];
+                const r_sol = solve2x2(mat1, rhs1);
+
+                if (!r_sol || r_sol[0] < 0 || r_sol[1] < 0) return 1e9;
+                
+                const t1_pos = [sub_positions[0][0] + r_sol[0] * bearing_vectors[0][0], sub_positions[0][1] + r_sol[0] * bearing_vectors[0][1]];
+                let sum_sq_err = 0;
+                let current_tgt_pos = [...t1_pos];
+
+                for (let i = 1; i < points.length; i++) {
+                    const dt_leg = points[i].time_leg;
+                    current_tgt_pos[0] += v_tgt[0] * dt_leg;
+                    current_tgt_pos[1] += v_tgt[1] * dt_leg;
+                    
+                    const vec_sub_to_tgt = [current_tgt_pos[0] - sub_positions[i][0], current_tgt_pos[1] - sub_positions[i][1]];
+                    const predicted_bearing_rad = Math.atan2(vec_sub_to_tgt[0], vec_sub_to_tgt[1]);
+                    const measured_bearing_rad = deg2rad((points[i].my_heading + points[i].rel_bearing) % 360);
+                    
+                    const delta_rad = predicted_bearing_rad - measured_bearing_rad;
+                    sum_sq_err += Math.sin(delta_rad)**2 + (Math.cos(delta_rad) - 1)**2;
+                }
+                return sum_sq_err;
+            };
+
+            const nelderMead = (f, x0, max_iter = 200, tol = 1e-6) => {
+                let step = 1.0, alpha = 1.0, gamma = 2.0, rho = 0.5, sigma = 0.5;
+                let n = x0.length;
+                let simplex = Array(n + 1).fill(0).map(() => Array(n).fill(0));
+                let f_simplex = Array(n + 1).fill(0);
+                simplex[0] = [...x0];
+                f_simplex[0] = f(x0);
+                for (let i = 0; i < n; i++) {
+                    let p = [...x0];
+                    p[i] += step;
+                    simplex[i + 1] = p;
+                    f_simplex[i + 1] = f(p);
+                }
+                for (let iter = 0; iter < max_iter; iter++) {
+                    let order = Array(n + 1).fill(0).map((_, i) => i).sort((a, b) => f_simplex[a] - f_simplex[b]);
+                    let best_idx = order[0], worst_idx = order[n], second_worst_idx = order[n - 1];
+                    if (Math.abs(f_simplex[best_idx] - f_simplex[worst_idx]) < tol) break;
+                    let centroid = Array(n).fill(0);
+                    for (let i = 0; i <= n; i++) {
+                        if (i === worst_idx) continue;
+                        for (let j = 0; j < n; j++) centroid[j] += simplex[i][j] / n;
+                    }
+                    let xr = centroid.map((c, j) => c + alpha * (c - simplex[worst_idx][j]));
+                    let fxr = f(xr);
+                    if (fxr < f_simplex[second_worst_idx] && fxr >= f_simplex[best_idx]) {
+                        simplex[worst_idx] = xr;
+                        f_simplex[worst_idx] = fxr;
+                    } else if (fxr < f_simplex[best_idx]) {
+                        let xe = centroid.map((c, j) => c + gamma * (xr[j] - c));
+                        let fxe = f(xe);
+                        if (fxe < fxr) {
+                            simplex[worst_idx] = xe;
+                            f_simplex[worst_idx] = fxe;
+                        } else {
+                            simplex[worst_idx] = xr;
+                            f_simplex[worst_idx] = fxr;
+                        }
+                    } else {
+                        let xc = centroid.map((c, j) => c + rho * (simplex[worst_idx][j] - c));
+                        let fxc = f(xc);
+                        if (fxc < f_simplex[worst_idx]) {
+                            simplex[worst_idx] = xc;
+                            f_simplex[worst_idx] = fxc;
+                        } else {
+                            for (let i = 1; i <= n; i++) {
+                                let idx = order[i];
+                                simplex[idx] = simplex[best_idx].map((b, j) => b + sigma * (simplex[idx][j] - b));
+                                f_simplex[idx] = f(simplex[idx]);
+                            }
+                        }
+                    }
+                }
+                let best_idx = f_simplex.indexOf(Math.min(...f_simplex));
+                return { x: simplex[best_idx], success: true, error: f_simplex[best_idx] };
+            };
+
+            const initial_guess_speed_kmpm = knots2km_per_min(points[1].speed_leg || 10.0);
+            const initial_bearing_rad = deg2rad(((points[0].my_heading||0) + (points[0].rel_bearing||0)) % 360);
+
+            const initial_guess_course_rad_1 = initial_bearing_rad + Math.PI / 2;
+            const initial_guess_v1 = [initial_guess_speed_kmpm * Math.sin(initial_guess_course_rad_1), initial_guess_speed_kmpm * Math.cos(initial_guess_course_rad_1)];
+            const result1 = nelderMead(errorFunction, initial_guess_v1);
+            
+            const initial_guess_course_rad_2 = initial_bearing_rad - Math.PI / 2;
+            const initial_guess_v2 = [initial_guess_speed_kmpm * Math.sin(initial_guess_course_rad_2), initial_guess_speed_kmpm * Math.cos(initial_guess_course_rad_2)];
+            const result2 = nelderMead(errorFunction, initial_guess_v2);
+
+            let result = (result1.error < result2.error) ? result1 : result2;
+
+            if (!result.success) return `Calculation failed: Optimizer could not converge.`;
+            
+            const target_v_kmpm = result.x;
+            const target_speed_knots = Math.sqrt(target_v_kmpm[0]**2 + target_v_kmpm[1]**2) * 60 / 1.852;
+            const target_course_deg = rad2deg(Math.atan2(target_v_kmpm[0], target_v_kmpm[1]));
+            
+            const dt1 = points[1].time_leg;
+            const mat1 = [[-bearing_vectors[0][0], bearing_vectors[1][0]], [-bearing_vectors[0][1], bearing_vectors[1][1]]];
+            const rhs1 = [target_v_kmpm[0] * dt1 - (sub_positions[1][0] - sub_positions[0][0]), target_v_kmpm[1] * dt1 - (sub_positions[1][1] - sub_positions[0][1])];
+            const r_sol = solve2x2(mat1, rhs1);
+
+            if (!r_sol) return "Calculation failed: Final solution matrix was singular.";
+            
+            const t1_pos = [sub_positions[0][0] + r_sol[0] * bearing_vectors[0][0], sub_positions[0][1] + r_sol[0] * bearing_vectors[0][1]];
+            let final_t_pos = [...t1_pos];
+            for (let i = 1; i < points.length; i++) {
+                const dt_leg = points[i].time_leg;
+                final_t_pos[0] += target_v_kmpm[0] * dt_leg;
+                final_t_pos[1] += target_v_kmpm[1] * dt_leg;
+            }
+            const final_sub_pos = sub_positions[sub_positions.length - 1];
+            const final_vec = [final_t_pos[0] - final_sub_pos[0], final_t_pos[1] - final_sub_pos[1]];
+            const distance_at_final_m = Math.sqrt(final_vec[0]**2 + final_vec[1]**2) * 1000;
+            const bearing_to_target_at_final_deg = rad2deg(Math.atan2(final_vec[0], final_vec[1]));
+            const bearing_from_target_to_sub_deg = (bearing_to_target_at_final_deg + 180) % 360;
+            const angle_on_bow_deg = (bearing_from_target_to_sub_deg - target_course_deg + 360) % 360;
+
+            return {
+                distance_meters: distance_at_final_m,
+                target_speed_knots: target_speed_knots,
+                angle_on_bow: angle_on_bow_deg,
+                target_course_deg: target_course_deg,
+            };
+        };
+        
+        const runSimulation = async () => {
+            btnCalculate.disabled = true;
+            resultsDiv.style.display = 'block';
+            progressContainer.style.display = 'block';
+            resultsSummary.innerHTML = '';
+            const points_to_analyze = [];
+            for (let i = 1; i <= pointCounter; i++) {
+                const row = document.querySelector(`.point-row[data-id='${i}']`);
+                const point = {};
+                row.querySelectorAll('input').forEach(input => {
+                    point[input.name] = parseFloat(input.value) || 0;
+                });
+                points_to_analyze.push(point);
+            }
+            if (points_to_analyze.length < 3) {
+                 statusText.textContent = "Error: At least 3 observation points are required.";
+                 btnCalculate.disabled = false;
+                 return;
+            }
+            const NUM_SIMULATIONS = parseInt(numSimulationsInput.value);
+            const BEARING_ERROR_STD_DEV = parseFloat(bearingErrorInput.value);
+            let solutions = [];
+            let failed_runs = 0;
+            statusText.textContent = `Running ${NUM_SIMULATIONS} simulations...`;
+            for (let i = 0; i < NUM_SIMULATIONS; i++) {
+                const noisy_points = [{...points_to_analyze[0], rel_bearing: (points_to_analyze[0].rel_bearing + boxMullerTransform(0, BEARING_ERROR_STD_DEV) + 360) % 360 }];
+                for (let j = 1; j < points_to_analyze.length; j++) {
+                    const p = { ...points_to_analyze[j] };
+                    const error = boxMullerTransform(0, BEARING_ERROR_STD_DEV);
+                    p.rel_bearing = (p.rel_bearing + error + 360) % 360;
+                    noisy_points.push(p);
+                }
+                const solution = calculateBestFitSolution(noisy_points);
+                if (typeof solution === 'object' && solution.target_speed_knots < 50 && solution.distance_meters < 80000) {
+                    solutions.push(solution);
+                } else {
+                    failed_runs++;
+                }
+                if (i % 10 === 0) {
+                    const progress = Math.round(((i + 1) / NUM_SIMULATIONS) * 100);
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.textContent = `${progress}%`;
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            }
+            progressBar.style.width = `100%`;
+            progressBar.textContent = `100%`;
+            statusText.textContent = `Analysis Complete. Found ${solutions.length} plausible solutions out of ${NUM_SIMULATIONS} runs (${failed_runs} failed or rejected).`;
+            if (solutions.length > 20) {
+                const speeds = solutions.map(s => s.target_speed_knots);
+                const aobs = solutions.map(s => s.angle_on_bow);
+                const ranges = solutions.map(s => s.distance_meters);
+                const courses = solutions.map(s => s.target_course_deg);
+                const mean = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+                const std = (arr, m) => Math.sqrt(arr.reduce((sq, n) => sq + (n - m)**2, 0) / (arr.length - 1));
+                const mean_speed = mean(speeds);
+                const std_speed = std(speeds, mean_speed);
+                const mean_range = mean(ranges);
+                const std_range = std(ranges, mean_range);
+                const courses_rad = courses.map(deg2rad);
+                const mean_course_rad = circmean(courses_rad);
+                const std_course_rad = circstd(courses_rad);
+                const mean_course = rad2deg(mean_course_rad);
+                const std_course = rad2deg(std_course_rad);
+                const aobs_rad = aobs.map(deg2rad);
+                const mean_aob_rad = circmean(aobs_rad);
+                const std_aob_rad = circstd(aobs_rad);
+                const mean_aob = rad2deg(mean_aob_rad);
+                const std_aob = rad2deg(std_aob_rad);
+                const formatCircInterval = (m, s) => {
+                    const lower = (m - 2 * s + 360) % 360;
+                    const upper = (m + 2 * s + 360) % 360;
+                    return `[${lower.toFixed(1)}° - ${upper.toFixed(1)}°]`;
+                };
+                const aob_result = determineAOBSide(mean_aob);
+                const formatAOBInterval = (m, s) => {
+                    const lower = (m - 2 * s + 360) % 360;
+                    const upper = (m + 2 * s + 360) % 360;
+                    const lower_result = determineAOBSide(lower);
+                    const upper_result = determineAOBSide(upper);
+                    if (lower_result.side === upper_result.side) {
+                        return `[${lower_result.value.toFixed(1)}° - ${upper_result.value.toFixed(1)}° ${lower_result.side}]`;
+                    } else {
+                        return `[${lower_result.value.toFixed(1)}° ${lower_result.side} - ${upper_result.value.toFixed(1)}° ${upper_result.side}]`;
+                    }
+                };
+                resultsSummary.innerHTML = `
+                    <h3>Probabilistic Target Solution (Mean & 95% CI)</h3>
+                    <p><span>Target Course:</span> <span>${mean_course.toFixed(1)}°</span></p>
+                    <p><span>  (Confidence Interval):</span> <span>${formatCircInterval(mean_course, std_course)}</span></p>
+                    <hr style="border-color: var(--secondary-color); border-style: dashed;">
+                    <p><span>Target Speed:</span> <span>${mean_speed.toFixed(1)} kts</span></p>
+                    <p><span>  (Confidence Interval):</span> <span>[${Math.max(0, mean_speed - 2*std_speed).toFixed(1)} - ${(mean_speed + 2*std_speed).toFixed(1)}]</span></p>
+                    <hr style="border-color: var(--secondary-color); border-style: dashed;">
+                    <p><span>Angle on Bow:</span> <span>${aob_result.value.toFixed(1)}° ${aob_result.side}</span></p>
+                    <p><span>  (Confidence Interval):</span> <span>${formatAOBInterval(mean_aob, std_aob)}</span></p>
+                    <hr style="border-color: var(--secondary-color); border-style: dashed;">
+                    <p><span>Final Range:</span> <span>${mean_range.toFixed(0)} m</span></p>
+                    <p><span>  (Confidence Interval):</span> <span>[${Math.max(0, mean_range - 2*std_range).toFixed(0)} - ${(mean_range + 2*std_range).toFixed(0)}]</span></p>
+                `;
+            } else {
+                 resultsSummary.innerHTML = `<p style="color: var(--error-color);">No plausible solutions found or too few to be statistically significant. The input data may be geometrically weak or inconsistent.</p>`;
+            }
+            btnCalculate.disabled = false;
+        };
+
+        // Set up event listeners for buttons
+        btnAddPoint.addEventListener('click', addPoint);
+        btnCalculate.addEventListener('click', runSimulation);
+        btnReset.addEventListener('click', resetData);
+        btnExample1.addEventListener('click', () => populateData(example1Data));
+        btnExample2.addEventListener('click', () => populateData(example2Data));
+        btnExample3.addEventListener('click', () => populateData(example3Data));
+        btnExample4.addEventListener('click', () => populateData(example4Data));
+
+        // Set up event listener for deleting points
+        pointsList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-btn')) {
+                e.target.closest('.point-row').remove();
+                pointCounter--;
+                renumberPoints();
+            }
+        });
+
+        // Initialize the UI
+        resetData();
+    });
+    </script>
+
+</body>
+</html>
